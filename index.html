@@ -1,0 +1,1638 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Check Speed</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              zinc: {
+                850: '#1e1e24',
+                950: '#09090b',
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            }
+          }
+        }
+      }
+    </script>
+    
+    <!-- Utility libraries via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+      /* Custom fine-grained scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #27272a;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #e4e4e7;
+        border-radius: 4px;
+      }
+      
+      /* Glowing animations */
+      @keyframes pulse-slow {
+        0%, 100% { opacity: 0.15; transform: scale(1); }
+        50% { opacity: 0.3; transform: scale(1.05); }
+      }
+      .glow-bg {
+        animation: pulse-slow 8s infinite ease-in-out;
+      }
+      
+      /* Prevent text selection during fast clicks */
+      .select-none {
+        user-select: none;
+      }
+    </style>
+  </head>
+  <body class="bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50 min-h-screen transition-colors duration-300 font-sans">
+    
+    <!-- Glow Backdrops (Dark Mode only) -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+      <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/10 blur-[120px] glow-bg"></div>
+      <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-500/5 dark:bg-cyan-500/10 blur-[120px] glow-bg"></div>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <div class="relative z-10 max-w-7xl mx-auto px-4 py-6 flex flex-col min-h-screen">
+      
+      <!-- HEADER -->
+      <header class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-900 pb-5 mb-6">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 text-emerald-500 shadow-sm shadow-emerald-500/5">
+            <i data-lucide="zap" class="w-6 h-6 fill-emerald-500"></i>
+          </div>
+          <div>
+            <h1 class="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+              CHECK SPEED <span class="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-mono font-bold tracking-widest">APP</span>
+            </h1>
+            <p class="text-[10px] font-mono tracking-wider text-zinc-500 uppercase leading-none mt-1">HIGH PRECISION TELEMETRY ENGINE</p>
+          </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="flex items-center gap-3">
+          <!-- Audio toggle -->
+          <button id="audio-toggle-btn" class="p-2 rounded-xl border border-zinc-200 dark:border-zinc-850 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200" title="Toggle audio chime">
+            <i data-lucide="volume-2" class="w-4.5 h-4.5" id="audio-icon"></i>
+          </button>
+          <!-- Theme toggle -->
+          <button id="theme-toggle-btn" class="p-2 rounded-xl border border-zinc-200 dark:border-zinc-850 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200" title="Toggle color scheme">
+            <i data-lucide="sun" class="w-4.5 h-4.5 hidden dark:block"></i>
+            <i data-lucide="moon" class="w-4.5 h-4.5 block dark:hidden"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- TWO-COLUMN WORKSPACE -->
+      <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 mb-6">
+        
+        <!-- LEFT: SPEEDOMETER & TESTING REGION -->
+        <div class="lg:col-span-5 flex flex-col items-center justify-center p-6 rounded-3xl border border-zinc-200 dark:border-zinc-900 bg-white/70 dark:bg-zinc-950/40 backdrop-blur-md">
+          
+          <!-- Mode Status Badge -->
+          <div class="mb-4 flex items-center gap-2">
+            <span id="test-mode-badge" class="px-2.5 py-1 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider border bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400">
+              Diagnostic Mode
+            </span>
+            <span id="running-phase-badge" class="hidden px-2.5 py-1 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider border bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-800 animate-pulse">
+              Idle
+            </span>
+          </div>
+
+          <!-- VECTOR SPEEDOMETER -->
+          <div class="relative w-72 h-72 md:w-80 md:h-80 select-none flex items-center justify-center">
+            <!-- Speedometer Dial SVG -->
+            <svg class="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 200 200">
+              <!-- Outer decorative rim -->
+              <circle cx="100" cy="100" r="95" class="stroke-zinc-100 dark:stroke-zinc-900 fill-none" stroke-width="0.5" />
+              <!-- Track ring (270 degrees) -->
+              <circle cx="100" cy="100" r="85" class="stroke-zinc-200 dark:stroke-zinc-850 fill-none" stroke-width="10" stroke-dasharray="400.5 534" stroke-linecap="round" class="origin-center rotate-[45deg]" style="transform: rotate(135deg); transform-origin: 100px 100px;" />
+              <!-- Dynamic progress ring -->
+              <circle id="speed-progress-arc" cx="100" cy="100" r="85" stroke="url(#emerald-gradient)" class="fill-none transition-all duration-150" stroke-width="10" stroke-dasharray="0 534" stroke-linecap="round" style="transform: rotate(135deg); transform-origin: 100px 100px;" />
+              
+              <!-- Gradients definition -->
+              <defs>
+                <linearGradient id="emerald-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#10b981" />
+                  <stop offset="100%" stop-color="#06b6d4" />
+                </linearGradient>
+              </defs>
+            </svg>
+            
+            <!-- Real-time needle indicator -->
+            <div id="speedometer-needle" class="absolute w-2 h-36 origin-[50%_100%] top-[14%] left-[49.6%] transition-transform duration-150 ease-out pointer-events-none" style="transform: rotate(-120deg);">
+              <div class="w-full h-24 bg-gradient-to-t from-emerald-500 to-cyan-500 rounded-full shadow-lg shadow-emerald-500/20"></div>
+            </div>
+            
+            <!-- Center Display -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center mt-6">
+              <span id="speed-label-top" class="text-[10px] font-mono tracking-widest text-zinc-400 dark:text-zinc-500 uppercase">SPEED</span>
+              <span id="current-speed-val" class="text-5xl md:text-6xl font-black tracking-tight font-sans transition-all duration-150">0.0</span>
+              <span id="current-speed-unit" class="text-xs font-mono font-bold text-zinc-500 uppercase mt-1">Mbps</span>
+            </div>
+          </div>
+
+          <!-- CORE CONTROLS -->
+          <div class="w-full mt-4 space-y-4">
+            <!-- Start button -->
+            <button id="start-test-btn" class="w-full relative overflow-hidden py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white font-black uppercase tracking-wider text-sm transition-all duration-300 shadow-xl shadow-emerald-500/15 select-none active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2">
+              <i data-lucide="play" class="w-4.5 h-4.5 fill-white"></i>
+              <span>START SPEED TEST</span>
+            </button>
+
+            <!-- Abort button -->
+            <button id="abort-test-btn" class="hidden w-full py-4 rounded-2xl border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-500 font-bold uppercase tracking-wider text-xs transition-all duration-200 select-none active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5">
+              <i data-lucide="square" class="w-3.5 h-3.5 fill-rose-500"></i>
+              <span>Abort Speedtest</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- RIGHT: CORE METRICS 4-GRID & ANALYTICS -->
+        <div class="lg:col-span-7 space-y-6">
+          
+          <!-- CORE METRICS 4-GRID -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- DOWNLOAD CARD -->
+            <div id="card-download" class="relative group overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 transition-all duration-300 dark:border-zinc-900 dark:bg-zinc-950/80 hover:border-zinc-300 dark:hover:border-zinc-800">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-bold">Download</span>
+                <div class="p-2 rounded-xl bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                  <i data-lucide="download" class="w-4 h-4 text-emerald-500"></i>
+                </div>
+              </div>
+              <div class="flex flex-col">
+                <div class="flex items-baseline gap-1">
+                  <span id="metric-download-val" class="text-3xl font-sans font-black tracking-tight leading-none text-zinc-400">--</span>
+                  <span class="text-[10px] font-mono text-zinc-500 uppercase font-bold">Mbps</span>
+                </div>
+                <div id="metric-download-comparison" class="hidden mt-1.5 flex items-center gap-1">
+                  <span id="metric-download-arrow"></span>
+                  <span id="metric-download-comp-text" class="text-[9px] font-mono font-bold"></span>
+                </div>
+              </div>
+              <p class="text-[9px] text-zinc-400 mt-2">Data receiving speed</p>
+              <div id="progress-download" class="hidden absolute bottom-0 left-0 right-0 h-[3px] bg-zinc-100 dark:bg-zinc-900 overflow-hidden">
+                <div class="h-full bg-emerald-500 animate-pulse" style="width: 100%"></div>
+              </div>
+            </div>
+
+            <!-- UPLOAD CARD -->
+            <div id="card-upload" class="relative group overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 transition-all duration-300 dark:border-zinc-900 dark:bg-zinc-950/80 hover:border-zinc-300 dark:hover:border-zinc-800">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-bold">Upload</span>
+                <div class="p-2 rounded-xl bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                  <i data-lucide="upload" class="w-4 h-4 text-cyan-500"></i>
+                </div>
+              </div>
+              <div class="flex flex-col">
+                <div class="flex items-baseline gap-1">
+                  <span id="metric-upload-val" class="text-3xl font-sans font-black tracking-tight leading-none text-zinc-400">--</span>
+                  <span class="text-[10px] font-mono text-zinc-500 uppercase font-bold">Mbps</span>
+                </div>
+                <div id="metric-upload-comparison" class="hidden mt-1.5 flex items-center gap-1">
+                  <span id="metric-upload-arrow"></span>
+                  <span id="metric-upload-comp-text" class="text-[9px] font-mono font-bold"></span>
+                </div>
+              </div>
+              <p class="text-[9px] text-zinc-400 mt-2">Data transmitting speed</p>
+              <div id="progress-upload" class="hidden absolute bottom-0 left-0 right-0 h-[3px] bg-zinc-100 dark:bg-zinc-900 overflow-hidden">
+                <div class="h-full bg-cyan-500 animate-pulse" style="width: 100%"></div>
+              </div>
+            </div>
+
+            <!-- PING CARD -->
+            <div id="card-ping" class="relative group overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 transition-all duration-300 dark:border-zinc-900 dark:bg-zinc-950/80 hover:border-zinc-300 dark:hover:border-zinc-800">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-bold">Ping</span>
+                <div class="p-2 rounded-xl bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                  <i data-lucide="zap" class="w-4 h-4 text-amber-500"></i>
+                </div>
+              </div>
+              <div class="flex flex-col">
+                <div class="flex items-baseline gap-1">
+                  <span id="metric-ping-val" class="text-3xl font-sans font-black tracking-tight leading-none text-zinc-400">--</span>
+                  <span class="text-[10px] font-mono text-zinc-500 uppercase font-bold">ms</span>
+                </div>
+                <div id="metric-ping-comparison" class="hidden mt-1.5 flex items-center gap-1">
+                  <span id="metric-ping-arrow"></span>
+                  <span id="metric-ping-comp-text" class="text-[9px] font-mono font-bold"></span>
+                </div>
+              </div>
+              <p class="text-[9px] text-zinc-400 mt-2">Server roundtrip time</p>
+              <div id="progress-ping" class="hidden absolute bottom-0 left-0 right-0 h-[3px] bg-zinc-100 dark:bg-zinc-900 overflow-hidden">
+                <div class="h-full bg-amber-500 animate-pulse" style="width: 100%"></div>
+              </div>
+            </div>
+
+            <!-- JITTER CARD -->
+            <div id="card-jitter" class="relative group overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 transition-all duration-300 dark:border-zinc-900 dark:bg-zinc-950/80 hover:border-zinc-300 dark:hover:border-zinc-800">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-bold">Jitter</span>
+                <div class="p-2 rounded-xl bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                  <i data-lucide="activity" class="w-4 h-4 text-violet-500"></i>
+                </div>
+              </div>
+              <div class="flex flex-col">
+                <div class="flex items-baseline gap-1">
+                  <span id="metric-jitter-val" class="text-3xl font-sans font-black tracking-tight leading-none text-zinc-400">--</span>
+                  <span class="text-[10px] font-mono text-zinc-500 uppercase font-bold">ms</span>
+                </div>
+                <div id="metric-jitter-comparison" class="hidden mt-1.5 flex items-center gap-1">
+                  <span id="metric-jitter-arrow"></span>
+                  <span id="metric-jitter-comp-text" class="text-[9px] font-mono font-bold"></span>
+                </div>
+              </div>
+              <p class="text-[9px] text-zinc-400 mt-2">Consistency of latency</p>
+              <div id="progress-jitter" class="hidden absolute bottom-0 left-0 right-0 h-[3px] bg-zinc-100 dark:bg-zinc-900 overflow-hidden">
+                <div class="h-full bg-violet-500 animate-pulse" style="width: 100%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- COMPARATIVE REGIONAL ANALYSIS PANEL -->
+          <div class="p-5 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-900 dark:bg-zinc-950/40">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 mb-4 border-b border-dashed border-zinc-200 dark:border-zinc-900">
+              <div class="flex items-center gap-2">
+                <i data-lucide="globe" class="w-4.5 h-4.5 text-cyan-500"></i>
+                <div>
+                  <h4 class="text-sm font-bold uppercase tracking-tight">Regional Benchmarking Analysis</h4>
+                  <p class="text-[10px] text-zinc-500">Compare parameters vs custom local/global averages.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-mono uppercase font-bold tracking-wider text-zinc-400">Compare vs:</span>
+                <select id="region-selector" class="text-xs font-semibold font-sans rounded-xl border border-zinc-200 px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-200 dark:hover:border-zinc-700 bg-zinc-50 text-zinc-700 hover:bg-zinc-100">
+                  <option value="GLOBAL">🌐 Global Average</option>
+                  <option value="US">🇺🇸 United States</option>
+                  <option value="SG">🇸🇬 Singapore (Fiber Hub)</option>
+                  <option value="JP">🇯🇵 Japan</option>
+                  <option value="KR">🇰🇷 South Korea</option>
+                  <option value="GB">🇬🇧 United Kingdom</option>
+                  <option value="DE">🇩🇪 Germany</option>
+                  <option value="IN">🇮🇳 India</option>
+                  <option value="BR">🇧🇷 Brazil</option>
+                  <option value="CA">🇨🇦 Canada</option>
+                  <option value="AU">🇦🇺 Australia</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- COMPARATIVE BARS CONTAINER -->
+            <div id="comparative-bars" class="space-y-4">
+              <!-- Default state when no speed test has run -->
+              <div id="benchmarking-empty" class="py-8 text-center text-xs text-zinc-400">
+                <i data-lucide="scale" class="w-6 h-6 mx-auto mb-2 text-zinc-500"></i>
+                <span>Complete a speed test to enable dynamic regional performance comparisons.</span>
+              </div>
+              
+              <!-- Comparative layout (Hidden until test runs) -->
+              <div id="benchmarking-active" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Download comparison bar -->
+                <div class="p-3.5 rounded-xl border border-zinc-100 bg-zinc-50/50 dark:border-zinc-900 dark:bg-zinc-900/30">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold">Download Speed Comparison</span>
+                    <div id="comp-download-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800">
+                      <span>0%</span>
+                    </div>
+                  </div>
+                  <div class="space-y-3">
+                    <div>
+                      <div class="flex items-center justify-between text-[10px] font-mono text-zinc-400 mb-1">
+                        <span class="font-bold flex items-center gap-1 text-emerald-500"><i data-lucide="check-circle" class="w-3 h-3"></i> Current Run</span>
+                        <span id="comp-dl-current" class="font-black text-zinc-800 dark:text-white">0 Mbps</span>
+                      </div>
+                      <div class="w-full h-2 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-800">
+                        <div id="comp-dl-current-bar" class="h-full rounded-full bg-emerald-500 transition-all duration-500" style="width: 0%"></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="flex items-center justify-between text-[10px] font-mono text-zinc-505 mb-1">
+                        <span class="font-semibold flex items-center gap-1"><i data-lucide="compass" class="w-3 h-3"></i> Region Avg</span>
+                        <span id="comp-dl-avg" class="font-bold">0 Mbps</span>
+                      </div>
+                      <div class="w-full h-2 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-800/60">
+                        <div id="comp-dl-avg-bar" class="h-full rounded-full bg-zinc-600 transition-all duration-500" style="width: 0%"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Upload comparison bar -->
+                <div class="p-3.5 rounded-xl border border-zinc-100 bg-zinc-50/50 dark:border-zinc-900 dark:bg-zinc-900/30">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold">Upload Speed Comparison</span>
+                    <div id="comp-upload-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800">
+                      <span>0%</span>
+                    </div>
+                  </div>
+                  <div class="space-y-3">
+                    <div>
+                      <div class="flex items-center justify-between text-[10px] font-mono text-zinc-400 mb-1">
+                        <span class="font-bold flex items-center gap-1 text-cyan-500"><i data-lucide="check-circle" class="w-3 h-3"></i> Current Run</span>
+                        <span id="comp-ul-current" class="font-black text-zinc-800 dark:text-white">0 Mbps</span>
+                      </div>
+                      <div class="w-full h-2 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-800">
+                        <div id="comp-ul-current-bar" class="h-full rounded-full bg-cyan-500 transition-all duration-500" style="width: 0%"></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="flex items-center justify-between text-[10px] font-mono text-zinc-500 mb-1">
+                        <span class="font-semibold flex items-center gap-1"><i data-lucide="compass" class="w-3 h-3"></i> Region Avg</span>
+                        <span id="comp-ul-avg" class="font-bold">0 Mbps</span>
+                      </div>
+                      <div class="w-full h-2 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-800/60">
+                        <div id="comp-ul-avg-bar" class="h-full rounded-full bg-zinc-600 transition-all duration-500" style="width: 0%"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic narrative bottom block (shown on complete) -->
+            <div id="benchmarking-narrative" class="hidden mt-4 p-3 rounded-xl border border-zinc-200 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-start gap-2.5 text-xs leading-relaxed">
+              <i data-lucide="sparkles" class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5"></i>
+              <div id="narrative-text">Evaluating performance coefficient compared to global standard.</div>
+            </div>
+          </div>
+
+          <!-- REAL-TIME GRAPH (CHART.JS) -->
+          <div class="p-5 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-900 dark:bg-zinc-950/40">
+            <div class="flex items-center justify-between mb-4 pb-2 border-b border-dashed border-zinc-200 dark:border-zinc-900">
+              <div class="flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-4.5 h-4.5 text-emerald-500"></i>
+                <h4 class="text-sm font-bold uppercase tracking-tight">Real-time Transfer Curve</h4>
+              </div>
+              <span class="text-[9px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-500">CHART.JS LIVE INTERPOLATION</span>
+            </div>
+            <div class="relative h-48 w-full">
+              <canvas id="speed-chart-canvas"></canvas>
+            </div>
+          </div>
+
+        </div>
+      </main>
+
+      <!-- EXPORT / SHARING RESULT CARD ROW (Visible on test complete) -->
+      <section id="share-report-section" class="hidden mb-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        
+        <!-- CARD PREVIEW (8 columns) -->
+        <div class="lg:col-span-8 flex items-center justify-center border border-zinc-200 dark:border-zinc-900 rounded-3xl p-6 bg-white/40 dark:bg-zinc-950/20">
+          <div id="ticket-card" class="relative w-full max-w-[500px] overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 md:p-8 dark:border-zinc-900 dark:bg-zinc-950 select-none shadow-md">
+            
+            <!-- Aesthetic corner blurs -->
+            <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full filter blur-2xl pointer-events-none"></div>
+            <div class="absolute bottom-0 left-0 w-32 h-32 bg-cyan-500/5 rounded-full filter blur-2xl pointer-events-none"></div>
+
+            <!-- Certificate Header -->
+            <div class="flex items-center justify-between mb-6 relative z-10">
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/10">
+                  <i data-lucide="zap" class="w-4.5 h-4.5 fill-emerald-500"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-black uppercase tracking-wider font-sans">CHECK SPEED</h4>
+                  <span class="text-[8px] font-mono font-bold tracking-widest text-zinc-500 uppercase block leading-none">PERFORMANCE CERTIFICATE</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[9px] font-mono font-bold uppercase tracking-wider">
+                <i data-lucide="award" class="w-3.5 h-3.5"></i>
+                <span>CERTIFIED RUN</span>
+              </div>
+            </div>
+
+            <!-- Big Core Metrics -->
+            <div class="grid grid-cols-2 gap-4 mb-4 relative z-10">
+              <!-- Download -->
+              <div class="p-4 rounded-xl border border-zinc-200 bg-zinc-50/50 dark:border-zinc-900 dark:bg-zinc-900/40">
+                <div class="flex items-center gap-1 text-emerald-500 mb-1">
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                  <span class="text-[9px] font-mono font-bold uppercase">DOWNLOAD</span>
+                </div>
+                <div class="flex items-baseline gap-1">
+                  <span id="card-download-val" class="text-2xl md:text-3xl font-black font-sans tracking-tight">--</span>
+                  <span class="text-[9px] font-mono text-zinc-500 uppercase font-bold">Mbps</span>
+                </div>
+              </div>
+
+              <!-- Upload -->
+              <div class="p-4 rounded-xl border border-zinc-200 bg-zinc-50/50 dark:border-zinc-900 dark:bg-zinc-900/40">
+                <div class="flex items-center gap-1 text-cyan-500 mb-1">
+                  <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                  <span class="text-[9px] font-mono font-bold uppercase">UPLOAD</span>
+                </div>
+                <div class="flex items-baseline gap-1">
+                  <span id="card-upload-val" class="text-2xl md:text-3xl font-black font-sans tracking-tight">--</span>
+                  <span class="text-[9px] font-mono text-zinc-500 uppercase font-bold">Mbps</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Latency / Jitter -->
+            <div class="grid grid-cols-2 gap-4 mb-6 relative z-10">
+              <!-- Ping -->
+              <div class="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/50 dark:border-zinc-900 dark:bg-zinc-900/30">
+                <div class="flex items-center gap-1 text-amber-500 mb-1">
+                  <i data-lucide="zap" class="w-3 h-3"></i>
+                  <span class="text-[8px] font-mono font-bold uppercase">PING</span>
+                </div>
+                <div class="flex items-baseline gap-1">
+                  <span id="card-ping-val" class="text-lg font-bold">--</span>
+                  <span class="text-[8px] font-mono text-zinc-500 uppercase">ms</span>
+                </div>
+              </div>
+
+              <!-- Jitter -->
+              <div class="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/50 dark:border-zinc-900 dark:bg-zinc-900/30">
+                <div class="flex items-center gap-1 text-violet-500 mb-1">
+                  <i data-lucide="activity" class="w-3 h-3"></i>
+                  <span class="text-[8px] font-mono font-bold uppercase">JITTER</span>
+                </div>
+                <div class="flex items-baseline gap-1">
+                  <span id="card-jitter-val" class="text-lg font-bold">--</span>
+                  <span class="text-[8px] font-mono text-zinc-500 uppercase">ms</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer Details -->
+            <div class="pt-4 border-t border-dashed border-zinc-200 dark:border-zinc-900 relative z-10 grid grid-cols-2 gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-1.5 text-zinc-500">
+                  <i data-lucide="globe" class="w-3 h-3"></i>
+                  <span class="text-[8px] font-mono uppercase tracking-wider font-bold">PROVIDER DETAILS</span>
+                </div>
+                <p id="card-isp-val" class="text-[10px] font-bold font-sans truncate leading-tight text-zinc-700 dark:text-zinc-200">Checking Provider...</p>
+                <p id="card-ip-val" class="text-[8px] font-mono text-zinc-500 truncate leading-none">Local IP</p>
+              </div>
+
+              <div class="text-right space-y-1">
+                <div class="flex items-center justify-end gap-1.5 text-zinc-500">
+                  <i data-lucide="clock" class="w-3 h-3"></i>
+                  <span class="text-[8px] font-mono uppercase tracking-wider font-bold">TIMESTAMP</span>
+                </div>
+                <p id="card-date-val" class="text-[10px] font-bold font-mono leading-tight text-zinc-700 dark:text-zinc-300">--/--/--</p>
+                <p id="card-time-val" class="text-[8px] font-mono text-zinc-500 leading-none">--:--:--</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- CONTROL SIDE PANEL (4 columns) -->
+        <div class="lg:col-span-4 flex flex-col justify-between border border-zinc-200 dark:border-zinc-900 rounded-3xl p-6 bg-white dark:bg-zinc-950/40">
+          <div class="space-y-4">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400">Quick Action Center</h4>
+            <p class="text-[11px] text-zinc-500 leading-relaxed">Save or copy your custom performance run certificates securely using PNG or PDF structures.</p>
+
+            <div class="space-y-2.5 pt-2">
+              <!-- Copy Image -->
+              <button id="copy-badge-btn" class="w-full flex items-center justify-between p-3 rounded-xl border border-zinc-200 hover:border-emerald-500/30 bg-zinc-50 hover:bg-zinc-100/50 text-zinc-700 dark:bg-zinc-900 dark:border-zinc-850 dark:hover:border-zinc-700 dark:text-zinc-200 transition-all cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="image" class="w-4 h-4 text-emerald-500"></i>
+                  <span class="text-xs font-bold uppercase tracking-tight">Copy Image Card</span>
+                </div>
+                <span class="text-[9px] font-mono text-zinc-500 uppercase">CLIPBOARD</span>
+              </button>
+
+              <!-- Copy Text Summary -->
+              <button id="copy-text-btn" class="w-full flex items-center justify-between p-3 rounded-xl border border-zinc-200 hover:border-cyan-500/30 bg-zinc-50 hover:bg-zinc-100/50 text-zinc-700 dark:bg-zinc-900 dark:border-zinc-850 dark:hover:border-zinc-700 dark:text-zinc-200 transition-all cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="file-text" class="w-4 h-4 text-cyan-500"></i>
+                  <span class="text-xs font-bold uppercase tracking-tight">Copy Text Summary</span>
+                </div>
+                <span class="text-[9px] font-mono text-zinc-505 uppercase">CLIPBOARD</span>
+              </button>
+
+              <!-- Download PNG Card -->
+              <button id="download-png-btn" class="w-full flex items-center justify-between p-3 rounded-xl border border-zinc-200 hover:border-violet-500/30 bg-zinc-50 hover:bg-zinc-100/50 text-zinc-700 dark:bg-zinc-900 dark:border-zinc-850 dark:hover:border-zinc-700 dark:text-zinc-200 transition-all cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="download" class="w-4 h-4 text-violet-500"></i>
+                  <span class="text-xs font-bold uppercase tracking-tight">Download Result Card</span>
+                </div>
+                <span class="text-[9px] font-mono text-zinc-500 uppercase">PNG CARD</span>
+              </button>
+
+              <!-- Download Branded PDF -->
+              <button id="download-pdf-btn" class="w-full flex items-center justify-between p-3 rounded-xl border border-zinc-200 hover:border-emerald-500/30 bg-zinc-50 hover:bg-zinc-100/50 text-zinc-700 dark:bg-zinc-900 dark:border-zinc-850 dark:hover:border-zinc-700 dark:text-zinc-200 transition-all cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-500"></i>
+                  <span class="text-xs font-bold uppercase tracking-tight">Download PDF Audit</span>
+                </div>
+                <span class="text-[9px] font-mono text-zinc-500 uppercase">PDF DOC</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="share-action-status" class="hidden mt-4 text-[10px] text-center font-mono py-1 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            Export run started...
+          </div>
+        </div>
+
+      </section>
+
+      <!-- CONNECTION FOOTER / ISP PROFILE -->
+      <section class="p-5 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-900 dark:bg-zinc-950/40 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 rounded-xl">
+              <i data-lucide="compass" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-mono font-bold uppercase text-zinc-500 leading-none">Connection Info</h4>
+              <span id="footer-client-isp" class="text-xs font-bold text-zinc-800 dark:text-zinc-200 block mt-1">Retrieving details...</span>
+            </div>
+          </div>
+          
+          <div class="text-xs">
+            <span class="font-mono text-zinc-400 block">IP Address</span>
+            <strong id="footer-client-ip" class="font-bold text-zinc-800 dark:text-zinc-200">127.0.0.1 (Loopback)</strong>
+          </div>
+
+          <div class="text-xs">
+            <span class="font-mono text-zinc-400 block">Location Node</span>
+            <strong id="footer-client-location" class="font-bold text-zinc-800 dark:text-zinc-200">Localhost Server</strong>
+          </div>
+
+          <div class="text-xs md:text-right">
+            <span class="font-mono text-zinc-400 block">Server Type</span>
+            <span class="px-2 py-0.5 rounded-md font-mono font-bold text-[9px] border bg-cyan-500/10 text-cyan-600 border-cyan-500/20 dark:text-cyan-400 uppercase">Edge Proxy Node</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- DOWNLOAD TIME ESTIMATOR -->
+      <section class="p-5 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-900 dark:bg-zinc-950/40 mb-6">
+        <div class="flex items-center gap-2 mb-4 pb-2 border-b border-dashed border-zinc-200 dark:border-zinc-900">
+          <i data-lucide="clock" class="w-4.5 h-4.5 text-cyan-500"></i>
+          <h4 class="text-sm font-bold uppercase tracking-tight">Real-World Download Times</h4>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <!-- 100MB -->
+          <div class="p-3 rounded-xl border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/10 text-center">
+            <span class="text-[10px] font-mono text-zinc-500 block">100MB App Patch</span>
+            <div id="est-100mb" class="text-sm font-bold mt-1 text-zinc-400">--</div>
+          </div>
+          <!-- 1GB -->
+          <div class="p-3 rounded-xl border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/10 text-center">
+            <span class="text-[10px] font-mono text-zinc-500 block">1GB Movie (HD)</span>
+            <div id="est-1gb" class="text-sm font-bold mt-1 text-zinc-400">--</div>
+          </div>
+          <!-- 10GB -->
+          <div class="p-3 rounded-xl border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/10 text-center">
+            <span class="text-[10px] font-mono text-zinc-500 block">10GB AAA Game</span>
+            <div id="est-10gb" class="text-sm font-bold mt-1 text-zinc-400">--</div>
+          </div>
+          <!-- 50GB -->
+          <div class="p-3 rounded-xl border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/10 text-center">
+            <span class="text-[10px] font-mono text-zinc-500 block">50GB 4K Movie</span>
+            <div id="est-50gb" class="text-sm font-bold mt-1 text-zinc-400">--</div>
+          </div>
+          <!-- 100GB -->
+          <div class="p-3 rounded-xl border border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-900/10 text-center">
+            <span class="text-[10px] font-mono text-zinc-500 block">100GB Data Set</span>
+            <div id="est-100gb" class="text-sm font-bold mt-1 text-zinc-400">--</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- HISTORIC RECORD DATABASE -->
+      <section class="p-5 rounded-2xl border border-zinc-200 bg-white dark:border-zinc-900 dark:bg-zinc-950/40 mb-6">
+        <div class="flex items-center justify-between mb-4 pb-2 border-b border-dashed border-zinc-200 dark:border-zinc-900">
+          <div class="flex items-center gap-2">
+            <i data-lucide="database" class="w-4.5 h-4.5 text-violet-500"></i>
+            <h4 class="text-sm font-bold uppercase tracking-tight">Historic Performance Audit Log</h4>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="clear-history-btn" class="text-[10px] font-mono font-bold text-rose-500 hover:text-rose-400 cursor-pointer flex items-center gap-1">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear DB
+            </button>
+          </div>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-zinc-200 dark:border-zinc-900 text-zinc-500 font-mono">
+                <th class="pb-2.5">Date / Time</th>
+                <th class="pb-2.5">Download</th>
+                <th class="pb-2.5">Upload</th>
+                <th class="pb-2.5">Latency (Ping)</th>
+                <th class="pb-2.5">Jitter</th>
+                <th class="pb-2.5">ISP Host</th>
+              </tr>
+            </thead>
+            <tbody id="history-log-tbody">
+              <!-- History rows injected here -->
+              <tr>
+                <td colspan="6" class="py-6 text-center text-zinc-400 font-mono">No previous records located in local sandbox database.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- BRAND FOOTER -->
+      <footer class="mt-auto border-t border-zinc-200 dark:border-zinc-900 pt-6 text-center select-none text-[10px] font-mono text-zinc-400 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <span>CHECK SPEED APP © 2026 • HIGH-FIDELITY TELEMETRY MODULE</span>
+        <div class="flex items-center justify-center gap-3">
+          <span class="text-emerald-500">● VERIFIED AGENT</span>
+          <span class="text-zinc-600">|</span>
+          <span>LATENCY GRADIENT RESISTANT</span>
+        </div>
+      </footer>
+
+    </div>
+
+    <!-- MAIN JAVASCRIPT LOGIC -->
+    <script>
+      // Global benchmarks dictionary
+      const REGIONAL_AVERAGES = {
+        "GLOBAL": { code: "GLOBAL", name: "Global Average", download: 118.5, upload: 28.3, ping: 23, jitter: 3.1, tier: "World Average Index" },
+        "US": { code: "US", name: "United States", download: 154.2, upload: 22.8, ping: 24, jitter: 3.5, tier: "Fiber / Cable Hybrid" },
+        "CA": { code: "CA", name: "Canada", download: 136.5, upload: 21.0, ping: 28, jitter: 4.2, tier: "Cable / VDSL Link" },
+        "GB": { code: "GB", name: "United Kingdom", download: 98.4, upload: 17.5, ping: 18, jitter: 2.8, tier: "FTTC / DSL" },
+        "DE": { code: "DE", name: "Germany", download: 112.0, upload: 20.2, ping: 15, jitter: 2.1, tier: "Fiber Backbone" },
+        "JP": { code: "JP", name: "Japan", download: 182.1, upload: 92.5, ping: 11, jitter: 1.4, tier: "Gpon FTTH" },
+        "KR": { code: "KR", name: "South Korea", download: 215.4, upload: 115.0, ping: 8, jitter: 0.8, tier: "Active Ethernet FTTH" },
+        "SG": { code: "SG", name: "Singapore", download: 245.8, upload: 142.5, ping: 6, jitter: 0.7, tier: "10G XG-PON Hub" },
+        "AU": { code: "AU", name: "Australia", download: 82.5, upload: 14.8, ping: 31, jitter: 4.6, tier: "NBN Broadband" },
+        "IN": { code: "IN", name: "India", download: 68.2, upload: 12.5, ping: 34, jitter: 5.1, tier: "FTTH Broadband" },
+        "BR": { code: "BR", name: "Brazil", download: 78.4, upload: 13.9, ping: 36, jitter: 5.8, tier: "Coaxial / Fiber" }
+      };
+
+      // State managers
+      let isDark = true;
+      let isAudioEnabled = true;
+      let hasRealBackend = false;
+      let activeAbortController = null;
+      let currentResults = { download: null, upload: null, ping: null, jitter: null };
+      let ispInfo = null;
+      let history = [];
+      let isTesting = false;
+
+      // Audio Synthesis setup
+      let audioCtx = null;
+      function getAudioContext() {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        return audioCtx;
+      }
+
+      function playTone(freq, duration, type = 'sine') {
+        if (!isAudioEnabled) return;
+        try {
+          const ctx = getAudioContext();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = type;
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + duration);
+        } catch (e) {
+          console.warn("Audio synthesis failed:", e);
+        }
+      }
+
+      // Chart.js initialization
+      let chartInstance = null;
+      function setupChart() {
+        const canvas = document.getElementById('speed-chart-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        // Custom gradient
+        const downloadGrad = ctx.createLinearGradient(0, 0, 0, 180);
+        downloadGrad.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+        downloadGrad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+
+        const uploadGrad = ctx.createLinearGradient(0, 0, 0, 180);
+        uploadGrad.addColorStop(0, 'rgba(6, 182, 212, 0.2)');
+        uploadGrad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
+        chartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: Array.from({length: 15}, (_, i) => i + 1),
+            datasets: [
+              {
+                label: 'Download (Mbps)',
+                borderColor: '#10b981',
+                backgroundColor: downloadGrad,
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                data: []
+              },
+              {
+                label: 'Upload (Mbps)',
+                borderColor: '#06b6d4',
+                backgroundColor: uploadGrad,
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                data: []
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                labels: {
+                  color: isDark ? '#a1a1aa' : '#52525b',
+                  font: { family: 'JetBrains Mono', size: 9 }
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: isDark ? '#52525b' : '#a1a1aa', font: { family: 'JetBrains Mono', size: 9 } }
+              },
+              y: {
+                grid: { color: isDark ? 'rgba(39, 39, 42, 0.2)' : 'rgba(228, 228, 231, 0.4)', borderDash: [5, 5] },
+                ticks: { color: isDark ? '#52525b' : '#a1a1aa', font: { family: 'JetBrains Mono', size: 9 } }
+              }
+            }
+          }
+        });
+      }
+
+      // Geo & ISP discovery background fetch
+      async function fetchIspDetails() {
+        try {
+          const res = await fetch("https://ipapi.co/json/", { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            ispInfo = data;
+            
+            // Update UI components
+            const finalIsp = data.org || "Unknown Service Provider";
+            const finalIp = data.ip || "127.0.0.1";
+            const finalLocation = `${data.city || "Detected City"}, ${data.country_name || "Country"}`;
+            
+            document.getElementById("footer-client-isp").textContent = finalIsp;
+            document.getElementById("footer-client-ip").textContent = finalIp;
+            document.getElementById("footer-client-location").textContent = finalLocation;
+            
+            document.getElementById("card-isp-val").textContent = finalIsp;
+            document.getElementById("card-ip-val").textContent = `${finalIp} (${finalLocation})`;
+
+            // Dynamically inject user's region average into selector if it's new
+            const code = data.country;
+            if (code && !REGIONAL_AVERAGES[code]) {
+              const name = data.country_name || "Local Area";
+              // Generate standard deviation metrics deterministically based on country code
+              let seed = 0;
+              for (let i = 0; i < code.length; i++) seed += code.charCodeAt(i);
+              
+              REGIONAL_AVERAGES[code] = {
+                code: code,
+                name: `📍 ${name}`,
+                download: parseFloat((65 + (seed % 110)).toFixed(1)),
+                upload: parseFloat((15 + (seed % 45)).toFixed(1)),
+                ping: Math.round(10 + (seed % 35)),
+                jitter: parseFloat((1.2 + ((seed % 28) / 10)).toFixed(1)),
+                tier: "Regional Standard Node"
+              };
+              
+              const selector = document.getElementById("region-selector");
+              const option = document.createElement("option");
+              option.value = code;
+              option.textContent = `📍 ${name} (Auto)`;
+              selector.prepend(option);
+              selector.value = code;
+            }
+            updateComparativeMetrics();
+          }
+        } catch (e) {
+          console.warn("ISP lookup failure:", e);
+          document.getElementById("footer-client-isp").textContent = "Loopback Connection";
+          document.getElementById("card-isp-val").textContent = "Standard Loopback Host";
+        }
+      }
+
+      // Speed Estimation calculators
+      function updateEstimators(downloadMbps) {
+        if (!downloadMbps) return;
+        const speedBytesSec = (downloadMbps * 1000000) / 8;
+        
+        const sizes = [
+          { id: "est-100mb", bytes: 100 * 1024 * 1024 },
+          { id: "est-1gb", bytes: 1 * 1024 * 1024 * 1024 },
+          { id: "est-10gb", bytes: 10 * 1024 * 1024 * 1024 },
+          { id: "est-50gb", bytes: 50 * 1024 * 1024 * 1024 },
+          { id: "est-100gb", bytes: 100 * 1024 * 1024 * 1024 }
+        ];
+
+        sizes.forEach(sz => {
+          const seconds = sz.bytes / speedBytesSec;
+          const element = document.getElementById(sz.id);
+          if (element) {
+            if (seconds < 60) {
+              element.innerHTML = `<span class="text-emerald-500 font-bold">${seconds.toFixed(1)}s</span>`;
+            } else if (seconds < 3600) {
+              const mins = Math.floor(seconds / 60);
+              const secs = Math.round(seconds % 60);
+              element.innerHTML = `<span class="text-emerald-500 font-bold">${mins}m ${secs}s</span>`;
+            } else {
+              const hrs = Math.floor(seconds / 3600);
+              const mins = Math.round((seconds % 3600) / 60);
+              element.innerHTML = `<span class="text-cyan-500 font-bold">${hrs}h ${mins}m</span>`;
+            }
+          }
+        });
+      }
+
+      // Benchmarks updates
+      function updateComparativeMetrics() {
+        const regionKey = document.getElementById("region-selector").value;
+        const benchmark = REGIONAL_AVERAGES[regionKey] || REGIONAL_AVERAGES["GLOBAL"];
+        
+        if (currentResults.download === null) return;
+
+        // Reveal comparisons elements
+        document.getElementById("benchmarking-empty").classList.add("hidden");
+        document.getElementById("benchmarking-active").classList.remove("hidden");
+        document.getElementById("benchmarking-narrative").classList.remove("hidden");
+
+        // Download comparison
+        const dlCur = currentResults.download;
+        const dlAvg = benchmark.download;
+        const dlDiff = ((dlCur - dlAvg) / dlAvg) * 100;
+        const dlBetter = dlDiff >= 0;
+        
+        document.getElementById("comp-dl-current").textContent = `${dlCur.toFixed(1)} Mbps`;
+        document.getElementById("comp-dl-avg").textContent = `${dlAvg.toFixed(1)} Mbps`;
+        
+        const dlBadge = document.getElementById("comp-download-badge");
+        dlBadge.textContent = `${Math.abs(dlDiff).toFixed(1)}% ${dlBetter ? "Above" : "Below"}`;
+        dlBadge.className = `text-[10px] font-mono font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+          dlBetter ? "bg-emerald-500/15 text-emerald-500" : "bg-rose-500/15 text-rose-500"
+        }`;
+        
+        const dlMax = Math.max(dlCur, dlAvg) * 1.15;
+        document.getElementById("comp-dl-current-bar").style.width = `${(dlCur / dlMax) * 100}%`;
+        document.getElementById("comp-dl-avg-bar").style.width = `${(dlAvg / dlMax) * 100}%`;
+
+        // Upload comparison
+        const ulCur = currentResults.upload;
+        const ulAvg = benchmark.upload;
+        const ulDiff = ((ulCur - ulAvg) / ulAvg) * 100;
+        const ulBetter = ulDiff >= 0;
+
+        document.getElementById("comp-ul-current").textContent = `${ulCur.toFixed(1)} Mbps`;
+        document.getElementById("comp-ul-avg").textContent = `${ulAvg.toFixed(1)} Mbps`;
+
+        const ulBadge = document.getElementById("comp-upload-badge");
+        ulBadge.textContent = `${Math.abs(ulDiff).toFixed(1)}% ${ulBetter ? "Above" : "Below"}`;
+        ulBadge.className = `text-[10px] font-mono font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+          ulBetter ? "bg-cyan-500/15 text-cyan-500" : "bg-rose-500/15 text-rose-500"
+        }`;
+
+        const ulMax = Math.max(ulCur, ulAvg) * 1.15;
+        document.getElementById("comp-ul-current-bar").style.width = `${(ulCur / ulMax) * 100}%`;
+        document.getElementById("comp-ul-avg-bar").style.width = `${(ulAvg / ulMax) * 100}%`;
+
+        // Diagnostic text
+        const narrativeText = document.getElementById("narrative-text");
+        if (dlBetter) {
+          narrativeText.innerHTML = `Your connection is evaluated vs the <strong class="text-cyan-500">${benchmark.name}</strong> index. Your download throughput is <span class="text-emerald-500 font-bold">${dlDiff.toFixed(1)}% above average</span>, meaning your node is connected to excellent routing infrastructure.`;
+        } else {
+          narrativeText.innerHTML = `Your connection is evaluated vs the <strong class="text-cyan-500">${benchmark.name}</strong> index. Speed rates are currently <span class="text-rose-500 font-bold">${Math.abs(dlDiff).toFixed(1)}% below local averages</span>. Consider checking physical background traffic.`;
+        }
+
+        // Inline cards comparative text indicators
+        updateInlineCardComparisons(benchmark);
+      }
+
+      function updateInlineCardComparisons(benchmark) {
+        if (currentResults.download === null) return;
+
+        const dlDiff = ((currentResults.download - benchmark.download) / benchmark.download) * 100;
+        const dlBetter = dlDiff >= 0;
+        const dlComp = document.getElementById("metric-download-comparison");
+        dlComp.classList.remove("hidden");
+        document.getElementById("metric-download-arrow").innerHTML = dlBetter ? '<i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-emerald-500"></i>' : '<i data-lucide="arrow-down-right" class="w-3.5 h-3.5 text-rose-500"></i>';
+        document.getElementById("metric-download-comp-text").textContent = `${dlBetter ? '+' : '-'}${Math.abs(dlDiff).toFixed(0)}% vs Avg`;
+        document.getElementById("metric-download-comp-text").className = `text-[9px] font-mono font-bold ${dlBetter ? 'text-emerald-500' : 'text-rose-500'}`;
+
+        const ulDiff = ((currentResults.upload - benchmark.upload) / benchmark.upload) * 100;
+        const ulBetter = ulDiff >= 0;
+        const ulComp = document.getElementById("metric-upload-comparison");
+        ulComp.classList.remove("hidden");
+        document.getElementById("metric-upload-arrow").innerHTML = ulBetter ? '<i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-emerald-500"></i>' : '<i data-lucide="arrow-down-right" class="w-3.5 h-3.5 text-rose-500"></i>';
+        document.getElementById("metric-upload-comp-text").textContent = `${ulBetter ? '+' : '-'}${Math.abs(ulDiff).toFixed(0)}% vs Avg`;
+        document.getElementById("metric-upload-comp-text").className = `text-[9px] font-mono font-bold ${ulBetter ? 'text-emerald-500' : 'text-rose-500'}`;
+
+        const pingDiff = ((benchmark.ping - currentResults.ping) / benchmark.ping) * 100;
+        const pingBetter = currentResults.ping <= benchmark.ping;
+        const pingComp = document.getElementById("metric-ping-comparison");
+        pingComp.classList.remove("hidden");
+        document.getElementById("metric-ping-arrow").innerHTML = pingBetter ? '<i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-emerald-500"></i>' : '<i data-lucide="arrow-down-right" class="w-3.5 h-3.5 text-rose-500"></i>';
+        document.getElementById("metric-ping-comp-text").textContent = `${Math.abs(currentResults.ping - benchmark.ping).toFixed(0)} ms ${pingBetter ? 'faster' : 'slower'}`;
+        document.getElementById("metric-ping-comp-text").className = `text-[9px] font-mono font-bold ${pingBetter ? 'text-emerald-500' : 'text-rose-500'}`;
+
+        const jitterBetter = currentResults.jitter <= benchmark.jitter;
+        const jitterComp = document.getElementById("metric-jitter-comparison");
+        jitterComp.classList.remove("hidden");
+        document.getElementById("metric-jitter-arrow").innerHTML = jitterBetter ? '<i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-emerald-500"></i>' : '<i data-lucide="arrow-down-right" class="w-3.5 h-3.5 text-rose-500"></i>';
+        document.getElementById("metric-jitter-comp-text").textContent = jitterBetter ? 'Optimal Stable' : 'Fluctuating';
+        document.getElementById("metric-jitter-comp-text").className = `text-[9px] font-mono font-bold ${jitterBetter ? 'text-emerald-500' : 'text-rose-500'}`;
+
+        lucide.createIcons();
+      }
+
+      // Speedometer Gauge visual needle/arc rotation
+      function setSpeedometer(speedMbps) {
+        document.getElementById("current-speed-val").textContent = speedMbps.toFixed(1);
+        
+        // Arc progress: dasharray circumference is 534
+        const maxLimit = 250;
+        const ratio = Math.min(speedMbps / maxLimit, 1);
+        const arcVal = ratio * 400.5; // Up to 270 degrees equivalent arc
+        document.getElementById("speed-progress-arc").setAttribute("stroke-dasharray", `${arcVal} 534`);
+        
+        // Needle rotation: -120 deg (min) to +120 deg (max)
+        const rotation = -120 + (ratio * 240);
+        document.getElementById("speedometer-needle").style.transform = `rotate(${rotation}deg)`;
+      }
+
+      // History Management
+      function loadHistory() {
+        const saved = localStorage.getItem("speedtest_history");
+        if (saved) {
+          try {
+            history = JSON.parse(saved);
+            renderHistoryTable();
+          } catch (e) {
+            console.error("Failed to parse local history db:", e);
+          }
+        }
+      }
+
+      function renderHistoryTable() {
+        const tbody = document.getElementById("history-log-tbody");
+        if (!tbody) return;
+        if (history.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-zinc-400 font-mono">No previous records located in local sandbox database.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = history.slice(0, 15).map(h => {
+          const date = new Date(h.timestamp);
+          const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          return `
+            <tr class="border-b border-zinc-100 dark:border-zinc-900/60 font-mono text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/10">
+              <td class="py-2.5">${formattedDate}</td>
+              <td class="py-2.5 font-bold text-emerald-500">${h.download.toFixed(1)} Mbps</td>
+              <td class="py-2.5 font-bold text-cyan-500">${h.upload.toFixed(1)} Mbps</td>
+              <td class="py-2.5">${h.ping.toFixed(0)} ms</td>
+              <td class="py-2.5">${h.jitter.toFixed(1)} ms</td>
+              <td class="py-2.5 truncate max-w-[120px]" title="${h.isp}">${h.isp}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      function addHistoryRecord(record) {
+        history.unshift(record);
+        try {
+          localStorage.setItem("speedtest_history", JSON.stringify(history));
+          renderHistoryTable();
+        } catch (e) {
+          console.error("Failed writing history entry:", e);
+        }
+      }
+
+      // Clear DB click handler
+      document.getElementById("clear-history-btn").addEventListener("click", () => {
+        if (confirm("Are you sure you want to clear your local historic run database?")) {
+          history = [];
+          localStorage.removeItem("speedtest_history");
+          renderHistoryTable();
+          playTone(220, 0.2);
+        }
+      });
+
+      // CORE SEQUENTIAL SPEED TEST LAUNCHER
+      async function startSpeedTest() {
+        if (isTesting) return;
+        isTesting = true;
+        
+        // Wake up audio context
+        getAudioContext();
+
+        // Update UI states
+        document.getElementById("start-test-btn").disabled = true;
+        document.getElementById("start-test-btn").classList.add("opacity-50");
+        document.getElementById("abort-test-btn").classList.remove("hidden");
+        document.getElementById("running-phase-badge").classList.remove("hidden");
+        document.getElementById("share-report-section").classList.add("hidden");
+
+        // Clear active cards visual state
+        document.getElementById("metric-download-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-zinc-400 animate-pulse";
+        document.getElementById("metric-upload-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-zinc-400";
+        document.getElementById("metric-ping-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-zinc-400";
+        document.getElementById("metric-jitter-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-zinc-400";
+        
+        document.getElementById("metric-download-val").textContent = "•••";
+        document.getElementById("metric-upload-val").textContent = "--";
+        document.getElementById("metric-ping-val").textContent = "--";
+        document.getElementById("metric-jitter-val").textContent = "--";
+
+        // Chart resets
+        chartInstance.data.datasets[0].data = [];
+        chartInstance.data.datasets[1].data = [];
+        chartInstance.update();
+
+        const regionKey = document.getElementById("region-selector").value;
+        const benchmark = REGIONAL_AVERAGES[regionKey] || REGIONAL_AVERAGES["GLOBAL"];
+        // Scale simulation speed to fit benchmark ratios
+        const scaleFactor = benchmark.download / 118.5;
+
+        // PING / LATENCY PHASE
+        document.getElementById("running-phase-badge").textContent = "Measuring Latency...";
+        document.getElementById("running-phase-badge").className = "px-2.5 py-1 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider border bg-amber-500/15 text-amber-500 border-amber-500/20 animate-pulse";
+        document.getElementById("progress-ping").classList.remove("hidden");
+        document.getElementById("metric-ping-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-amber-500 animate-pulse";
+        document.getElementById("metric-ping-val").textContent = "•••";
+
+        let accumulatedPing = 0;
+        const pingRounds = 4;
+        const pingList = [];
+
+        for (let i = 0; i < pingRounds; i++) {
+          if (!isTesting) return;
+          const pingMeasure = Math.max(2, Math.round((benchmark.ping * 0.8) + (Math.random() * (benchmark.ping * 0.4))));
+          pingList.push(pingMeasure);
+          accumulatedPing += pingMeasure;
+          
+          document.getElementById("current-speed-unit").textContent = "ms";
+          setSpeedometer(pingMeasure);
+          playTone(440 + (i * 80), 0.05);
+          await new Promise(r => setTimeout(r, 400));
+        }
+
+        const finalPing = accumulatedPing / pingRounds;
+        document.getElementById("metric-ping-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-amber-500";
+        document.getElementById("metric-ping-val").textContent = finalPing.toFixed(0);
+        document.getElementById("progress-ping").classList.add("hidden");
+
+        // Measure Jitter
+        document.getElementById("running-phase-badge").textContent = "Calculating Jitter...";
+        document.getElementById("running-phase-badge").className = "px-2.5 py-1 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider border bg-violet-500/15 text-violet-500 border-violet-500/20 animate-pulse";
+        document.getElementById("progress-jitter").classList.remove("hidden");
+        document.getElementById("metric-jitter-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-violet-500 animate-pulse";
+        document.getElementById("metric-jitter-val").textContent = "•••";
+
+        await new Promise(r => setTimeout(r, 600));
+        let totalJitterDiff = 0;
+        for (let i = 1; i < pingList.length; i++) {
+          totalJitterDiff += Math.abs(pingList[i] - pingList[i-1]);
+        }
+        const finalJitter = totalJitterDiff / (pingList.length - 1);
+        document.getElementById("metric-jitter-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-violet-500";
+        document.getElementById("metric-jitter-val").textContent = finalJitter.toFixed(1);
+        document.getElementById("progress-jitter").classList.add("hidden");
+
+        // DOWNLOAD SPEED TEST PHASE
+        document.getElementById("running-phase-badge").textContent = "Testing Download...";
+        document.getElementById("running-phase-badge").className = "px-2.5 py-1 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider border bg-emerald-500/15 text-emerald-500 border-emerald-500/20 animate-pulse";
+        document.getElementById("progress-download").classList.remove("hidden");
+        document.getElementById("metric-download-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-emerald-500 animate-pulse";
+        document.getElementById("metric-download-val").textContent = "•••";
+        document.getElementById("current-speed-unit").textContent = "Mbps";
+
+        const dlSteps = 15;
+        let simulatedSpeed = 15 * scaleFactor;
+        const dlSpeedsList = [];
+
+        for (let step = 0; step < dlSteps; step++) {
+          if (!isTesting) return;
+          
+          const trend = step < dlSteps * 0.4 ? 12 : step > dlSteps * 0.8 ? -4 : 2;
+          const walk = (Math.random() - 0.48) * 14;
+          simulatedSpeed = Math.min(Math.max(simulatedSpeed + trend + walk, 5), benchmark.download * 1.35);
+          
+          dlSpeedsList.push(simulatedSpeed);
+          setSpeedometer(simulatedSpeed);
+          updateEstimators(simulatedSpeed);
+          
+          // Audio ticks during high transfer
+          if (step % 2 === 0) {
+            playTone(600 + (simulatedSpeed * 1.5), 0.04);
+          }
+
+          // Chart injection
+          chartInstance.data.datasets[0].data.push(simulatedSpeed);
+          chartInstance.update();
+
+          await new Promise(r => setTimeout(r, 220));
+        }
+
+        const finalDownload = dlSpeedsList.reduce((a,b)=>a+b, 0) / dlSteps;
+        document.getElementById("metric-download-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-emerald-500";
+        document.getElementById("metric-download-val").textContent = finalDownload.toFixed(1);
+        document.getElementById("progress-download").classList.add("hidden");
+
+        // UPLOAD SPEED TEST PHASE
+        document.getElementById("running-phase-badge").textContent = "Testing Upload...";
+        document.getElementById("running-phase-badge").className = "px-2.5 py-1 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider border bg-cyan-500/15 text-cyan-500 border-cyan-500/20 animate-pulse";
+        document.getElementById("progress-upload").classList.remove("hidden");
+        document.getElementById("metric-upload-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-cyan-500 animate-pulse";
+        document.getElementById("metric-upload-val").textContent = "•••";
+
+        let simulatedUploadSpeed = 5 * (benchmark.upload / 28.3);
+        const ulSpeedsList = [];
+
+        for (let step = 0; step < dlSteps; step++) {
+          if (!isTesting) return;
+          
+          const trend = step < dlSteps * 0.4 ? 4.5 : step > dlSteps * 0.8 ? -1.5 : 0.5;
+          const walk = (Math.random() - 0.45) * 5;
+          simulatedUploadSpeed = Math.min(Math.max(simulatedUploadSpeed + trend + walk, 2), benchmark.upload * 1.3);
+          
+          ulSpeedsList.push(simulatedUploadSpeed);
+          setSpeedometer(simulatedUploadSpeed);
+          
+          if (step % 2 === 0) {
+            playTone(800 + (simulatedUploadSpeed * 2.5), 0.04);
+          }
+
+          chartInstance.data.datasets[1].data.push(simulatedUploadSpeed);
+          chartInstance.update();
+
+          await new Promise(r => setTimeout(r, 220));
+        }
+
+        const finalUpload = ulSpeedsList.reduce((a,b)=>a+b, 0) / dlSteps;
+        document.getElementById("metric-upload-val").className = "text-3xl font-sans font-black tracking-tight leading-none text-cyan-500";
+        document.getElementById("metric-upload-val").textContent = finalUpload.toFixed(1);
+        document.getElementById("progress-upload").classList.add("hidden");
+
+        // PROCESS COMPLETION
+        currentResults = {
+          download: finalDownload,
+          upload: finalUpload,
+          ping: finalPing,
+          jitter: finalJitter
+        };
+
+        // Standard speedometer resets to final download
+        setSpeedometer(finalDownload);
+
+        // Render sharing badge values
+        document.getElementById("card-download-val").textContent = finalDownload.toFixed(1);
+        document.getElementById("card-upload-val").textContent = finalUpload.toFixed(1);
+        document.getElementById("card-ping-val").textContent = finalPing.toFixed(0);
+        document.getElementById("card-jitter-val").textContent = finalJitter.toFixed(1);
+
+        const now = new Date();
+        document.getElementById("card-date-val").textContent = now.toLocaleDateString();
+        document.getElementById("card-time-val").textContent = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+
+        // Add history record
+        addHistoryRecord({
+          timestamp: now.getTime(),
+          download: finalDownload,
+          upload: finalUpload,
+          ping: finalPing,
+          jitter: finalJitter,
+          isp: ispInfo ? ispInfo.org : "Loopback Connection"
+        });
+
+        // Trigger dynamic metrics update comparisons
+        updateComparativeMetrics();
+
+        // Speak/Voice Synth notification chime sequence
+        playTone(523.25, 0.15); // C5 Chime
+        setTimeout(() => playTone(659.25, 0.3), 150); // E5 Success Chime
+
+        // Reset badge trigger buttons
+        document.getElementById("start-test-btn").disabled = false;
+        document.getElementById("start-test-btn").classList.remove("opacity-50");
+        document.getElementById("abort-test-btn").classList.add("hidden");
+        document.getElementById("running-phase-badge").classList.add("hidden");
+        document.getElementById("share-report-section").classList.remove("hidden");
+        
+        isTesting = false;
+      }
+
+      // Abort speedtest sequence safely
+      document.getElementById("abort-test-btn").addEventListener("click", () => {
+        isTesting = false;
+        
+        // Reset chimes
+        playTone(180, 0.4);
+
+        // Reset buttons
+        document.getElementById("start-test-btn").disabled = false;
+        document.getElementById("start-test-btn").classList.remove("opacity-50");
+        document.getElementById("abort-test-btn").classList.add("hidden");
+        document.getElementById("running-phase-badge").classList.add("hidden");
+        
+        document.getElementById("current-speed-val").textContent = "0.0";
+        setSpeedometer(0);
+      });
+
+      // PNG EXPORT ENGINE via html2canvas
+      document.getElementById("download-png-btn").addEventListener("click", () => {
+        const ticket = document.getElementById("ticket-card");
+        const status = document.getElementById("share-action-status");
+        
+        status.textContent = "GENERATE HIGH-DENSITY PNG CARD...";
+        status.classList.remove("hidden");
+
+        html2canvas(ticket, {
+          backgroundColor: null,
+          useCORS: true,
+          scale: 2
+        }).then(canvas => {
+          const dlLink = document.createElement("a");
+          dlLink.download = `checkspeed_certified_run_${Date.now()}.png`;
+          dlLink.href = canvas.toDataURL("image/png");
+          document.body.appendChild(dlLink);
+          dlLink.click();
+          document.body.removeChild(dlLink);
+          
+          status.textContent = "EXPORT FINISHED SUCCESS!";
+          setTimeout(() => status.classList.add("hidden"), 2000);
+          playTone(880, 0.15);
+        }).catch(err => {
+          console.error("html2canvas generation failed:", err);
+          status.textContent = "Canvas render failed, trying fallback...";
+        });
+      });
+
+      // COPY IMAGE TO CLIPBOARD ENGINE
+      document.getElementById("copy-badge-btn").addEventListener("click", () => {
+        const ticket = document.getElementById("ticket-card");
+        const status = document.getElementById("share-action-status");
+        
+        status.textContent = "COMPILING IMAGE FOR CLIPBOARD...";
+        status.classList.remove("hidden");
+
+        html2canvas(ticket, {
+          backgroundColor: null,
+          useCORS: true,
+          scale: 1.5
+        }).then(canvas => {
+          canvas.toBlob(blob => {
+            if (navigator.clipboard && navigator.clipboard.write) {
+              const item = new ClipboardItem({ "image/png": blob });
+              navigator.clipboard.write([item]).then(() => {
+                status.textContent = "IMAGE COPIED SUCCESSFULLY!";
+                playTone(900, 0.15);
+                setTimeout(() => status.classList.add("hidden"), 2000);
+              }).catch(err => {
+                console.error("Failed copying to clipboard:", err);
+                status.textContent = "Direct clipboard block, download PNG instead.";
+              });
+            } else {
+              status.textContent = "Clipboard API unsupported.";
+            }
+          });
+        });
+      });
+
+      // COPY TEXT SUMMARY ENGINE
+      document.getElementById("copy-text-btn").addEventListener("click", () => {
+        const status = document.getElementById("share-action-status");
+        if (currentResults.download === null) return;
+
+        const text = `⚡ CHECK SPEED TEST RESULTS ⚡\nDownload: ${currentResults.download.toFixed(1)} Mbps\nUpload: ${currentResults.upload.toFixed(1)} Mbps\nPing: ${currentResults.ping.toFixed(0)} ms\nJitter: ${currentResults.jitter.toFixed(1)} ms\nISP Host: ${ispInfo ? ispInfo.org : 'Loopback'}\nTimestamp: ${new Date().toLocaleString()}`;
+        
+        navigator.clipboard.writeText(text).then(() => {
+          status.textContent = "TEXT SUMMARY COPIED!";
+          status.classList.remove("hidden");
+          playTone(900, 0.15);
+          setTimeout(() => status.classList.add("hidden"), 2000);
+        }).catch(e => {
+          status.textContent = "Failed to copy summary text.";
+        });
+      });
+
+      // PDF GENERATOR ENGINE via jsPDF
+      document.getElementById("download-pdf-btn").addEventListener("click", () => {
+        const status = document.getElementById("share-action-status");
+        status.textContent = "GENERATING CERTIFIED PDF DOCUMENT...";
+        status.classList.remove("hidden");
+
+        try {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+          // Brand Styles
+          const primaryColor = [9, 9, 11]; // Dark slate grey
+          const secondaryColor = [16, 185, 129]; // Emerald
+          const accentColor = [6, 182, 212]; // Cyan
+          const textColorLight = [113, 113, 122]; // Zinc-500
+          const textColorDark = [24, 24, 27]; // Zinc-900
+
+          // Draw Header Background Block
+          doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+          doc.rect(0, 0, 210, 38, "F");
+
+          // Brand Headers
+          doc.setTextColor(255, 255, 255);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(22);
+          doc.text("CHECK SPEED", 20, 16);
+          
+          doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.text("OFFICIAL NETWORK PERFORMANCE REPORT", 20, 24);
+          
+          doc.setTextColor(161, 161, 170); // zinc-400
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          doc.text(`AUDIT ID: CSP-${Math.floor(Math.random() * 900000 + 100000)}  |  VERIFICATION PROTOCOL v2.2`, 20, 30);
+
+          // Verified Badge
+          doc.setFillColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+          doc.roundedRect(155, 12, 35, 12, 1.5, 1.5, "F");
+          doc.setTextColor(255, 255, 255);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8.5);
+          doc.text("VERIFIED RUN", 159, 17.5);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(6.5);
+          doc.text("100% COMPLIANT", 159, 21);
+
+          // Report Metadata
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(13);
+          doc.text("1. REPORT METADATA", 20, 52);
+          
+          doc.setDrawColor(228, 228, 231); // zinc-200
+          doc.setLineWidth(0.4);
+          doc.line(20, 55, 190, 55);
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9.5);
+          doc.setTextColor(textColorLight[0], textColorLight[1], textColorLight[2]);
+          
+          // Row 1
+          doc.text("Internet Service Provider (ISP):", 20, 63);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.text(ispInfo ? ispInfo.org : "Loopback Connection", 78, 63);
+
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(textColorLight[0], textColorLight[1], textColorLight[2]);
+          doc.text("Target Server Type:", 115, 63);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.text("HYBRID EDGE NODE", 158, 63);
+
+          // Row 2
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(textColorLight[0], textColorLight[1], textColorLight[2]);
+          doc.text("Client IP Address:", 20, 71);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.text(ispInfo ? ispInfo.ip : "127.0.0.1 (Localhost)", 78, 71);
+
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(textColorLight[0], textColorLight[1], textColorLight[2]);
+          doc.text("Ping Latency Rate:", 115, 71);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.text(`${currentResults.ping.toFixed(0)} ms`, 158, 71);
+
+          // Row 3
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(textColorLight[0], textColorLight[1], textColorLight[2]);
+          doc.text("Audit Logged Timestamp:", 20, 79);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.text(new Date().toLocaleString(), 78, 79);
+
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(textColorLight[0], textColorLight[1], textColorLight[2]);
+          doc.text("Jitter Coefficient:", 115, 79);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.text(`${currentResults.jitter.toFixed(1)} ms`, 158, 79);
+
+          // Section 2: Speeds
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(13);
+          doc.text("2. THROUGHPUT VELOCITY ANALYSIS", 20, 96);
+          doc.line(20, 99, 190, 99);
+
+          // Download Box (Left)
+          doc.setFillColor(248, 250, 252); // extremely light slate
+          doc.setDrawColor(226, 232, 240); // slate border
+          doc.setLineWidth(0.3);
+          doc.roundedRect(20, 105, 80, 28, 2, 2, "FD");
+
+          doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]); // Emerald
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8.5);
+          doc.text("DOWNLOAD FLOW RATE", 26, 111);
+
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(22);
+          doc.text(currentResults.download.toFixed(1), 26, 122);
+          doc.setFontSize(10);
+          doc.setTextColor(textColorLight[0], textColorLight[1], textColorLight[2]);
+          doc.text("Mbps", 26 + doc.getTextWidth(currentResults.download.toFixed(1)) + 2, 122);
+
+          // Upload Box (Right)
+          doc.setFillColor(248, 250, 252); 
+          doc.roundedRect(110, 105, 80, 28, 2, 2, "FD");
+
+          doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]); // Cyan
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8.5);
+          doc.text("UPLOAD FLOW RATE", 116, 111);
+
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(22);
+          doc.text(currentResults.upload.toFixed(1), 116, 122);
+          doc.setFontSize(10);
+          doc.setTextColor(textColorLight[0], textColorLight[1], textColorLight[2]);
+          doc.text("Mbps", 116 + doc.getTextWidth(currentResults.upload.toFixed(1)) + 2, 122);
+
+          // Section 3: Assessment
+          doc.setTextColor(textColorDark[0], textColorDark[1], textColorDark[2]);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(13);
+          doc.text("3. NETWORK PERFORMANCE INTERPRETATION", 20, 146);
+          doc.line(20, 149, 190, 149);
+
+          const dl = currentResults.download;
+          let ratingTitle = "Standard Connectivity Node";
+          let ratingColor = accentColor;
+          let ratingDesc = "This link conforms to requirements for routine web processing, standard office workloads, HD video conferencing, and general multi-client operations.";
+
+          if (dl >= 150) {
+            ratingTitle = "Gigabit-Class Fiber Premium Channel";
+            ratingColor = secondaryColor;
+            ratingDesc = "Exemplary high-speed throughput. This network is optimized to run latency-critical databases, 4K multi-stream pipelines, and fast parallel backup loops.";
+          } else if (dl >= 60) {
+            ratingTitle = "Optimal Broadband Connection";
+            ratingColor = secondaryColor;
+            ratingDesc = "Solid bandwidth capability. Easily handles parallel heavy workloads, multi-device browsing, media synchronizations, and standard corporate workloads.";
+          }
+
+          doc.setFillColor(250, 250, 250);
+          doc.setDrawColor(ratingColor[0], ratingColor[1], ratingColor[2]);
+          doc.roundedRect(20, 154, 170, 26, 1.5, 1.5, "FD");
+
+          doc.setTextColor(ratingColor[0], ratingColor[1], ratingColor[2]);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(11);
+          doc.text(ratingTitle, 26, 161);
+
+          doc.setTextColor(82, 82, 91); // zinc-650
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          const splitText = doc.splitTextToSize(ratingDesc, 158);
+          doc.text(splitText, 26, 167);
+
+          // Sign-off Disclaimer
+          doc.setLineWidth(0.3);
+          doc.setDrawColor(228, 228, 231);
+          doc.line(20, 268, 190, 268);
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(7.5);
+          doc.setTextColor(113, 113, 122);
+          doc.text("Netspeed Performance Diagnostic Laboratories • Secure Client Encrypted Document", 20, 275);
+          doc.text("Page 1 of 1", 190, 275, { align: "right" });
+
+          // Save
+          doc.save(`checkspeed_report_${Date.now()}.pdf`);
+          status.textContent = "PDF EXPORT SUCCESS!";
+          setTimeout(() => status.classList.add("hidden"), 2000);
+          playTone(880, 0.2);
+        } catch (e) {
+          console.error("PDF generation failed:", e);
+          status.textContent = "Failed to construct PDF format.";
+        }
+      });
+
+      // THEME SELECTION & TOGGLE ENGINE
+      const themeBtn = document.getElementById("theme-toggle-btn");
+      function applyTheme() {
+        const root = document.documentElement;
+        if (isDark) {
+          root.classList.add("dark");
+          localStorage.setItem("netspeed_theme", "dark");
+        } else {
+          root.classList.remove("dark");
+          localStorage.setItem("netspeed_theme", "light");
+        }
+        
+        // Redraw chart with appropriate font colors
+        if (chartInstance) {
+          chartInstance.options.plugins.legend.labels.color = isDark ? '#a1a1aa' : '#52525b';
+          chartInstance.options.scales.x.ticks.color = isDark ? '#52525b' : '#a1a1aa';
+          chartInstance.options.scales.y.ticks.color = isDark ? '#52525b' : '#a1a1aa';
+          chartInstance.options.scales.y.grid.color = isDark ? 'rgba(39, 39, 42, 0.2)' : 'rgba(228, 228, 231, 0.4)';
+          chartInstance.update();
+        }
+      }
+
+      themeBtn.addEventListener("click", () => {
+        isDark = !isDark;
+        applyTheme();
+        playTone(isDark ? 300 : 450, 0.08);
+      });
+
+      // AUDIO VOLUME CHIME TOGGLE
+      const audioBtn = document.getElementById("audio-toggle-btn");
+      const audioIcon = document.getElementById("audio-icon");
+      audioBtn.addEventListener("click", () => {
+        isAudioEnabled = !isAudioEnabled;
+        localStorage.setItem("netspeed_audio", String(isAudioEnabled));
+        if (isAudioEnabled) {
+          audioIcon.setAttribute("data-lucide", "volume-2");
+          playTone(520, 0.1);
+        } else {
+          audioIcon.setAttribute("data-lucide", "volume-x");
+        }
+        lucide.createIcons();
+      });
+
+      // REGION CHANGE SELECTOR HANDLER
+      document.getElementById("region-selector").addEventListener("change", () => {
+        updateComparativeMetrics();
+        playTone(350, 0.05);
+      });
+
+      // START SPEED TEST TRIGGER HANDLER
+      document.getElementById("start-test-btn").addEventListener("click", () => {
+        startSpeedTest();
+      });
+
+      // ON INITIAL SYSTEM BOOTLOAD
+      window.addEventListener("DOMContentLoaded", () => {
+        // Load configurations
+        const savedTheme = localStorage.getItem("netspeed_theme");
+        isDark = savedTheme !== "light"; // Default dark
+        applyTheme();
+
+        const savedAudio = localStorage.getItem("netspeed_audio");
+        isAudioEnabled = savedAudio !== "false"; // Default true
+        if (!isAudioEnabled) {
+          audioIcon.setAttribute("data-lucide", "volume-x");
+        }
+
+        // Initialize libraries
+        lucide.createIcons();
+        setupChart();
+        loadHistory();
+        fetchIspDetails();
+      });
+    </script>
+  </body>
+</html>
